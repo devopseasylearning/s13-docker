@@ -18,3 +18,11 @@ jobs:
           set -euo pipefail
           image_tag="$(git rev-parse HEAD)"
           docker build --pull --tag "s13-training-camps:${image_tag}" .
+
+      - name: Show built Docker image
+        run: |
+          set -euo pipefail
+          image_tag="$(git rev-parse HEAD)"
+          docker image ls --no-trunc \
+            --format 'REPOSITORY={{.Repository}} TAG={{.Tag}} IMAGE_ID={{.ID}} SIZE={{.Size}}' \
+            "s13-training-camps:${image_tag}"
