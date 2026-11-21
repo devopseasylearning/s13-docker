@@ -17,3 +17,16 @@ jobs:
           persist-credentials: false
       - name: Build application image
         run: docker build --file Dockerfile --tag "s13-training-camps:${GITHUB_SHA}" .
+      - name: Publish image to Docker Hub
+        if: github.ref == 'refs/heads/fix-restore-docker-and-course-enrollment-c1e100e' && github.event.before == 'ac30b455d1d6e811d4a1c7d6048e72f68eb1f73f'
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "::error::The DOCKERHUB_TOKEN Actions secret is missing."
+            exit 1
+          fi
+          image="devopseasylearning/s13-training-camps:${GITHUB_SHA}"
+          printf '%s' "$DOCKERHUB_TOKEN" | docker login --username devopseasylearning --password-stdin
+          docker tag "s13-training-camps:${GITHUB_SHA}" "$image"
+          docker push "$image"
