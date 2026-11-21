@@ -1,0 +1,19 @@
+name: Docker build
+
+on:
+  push:
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build application image
+        run: docker build --file Dockerfile --tag "s13-training-camps:${GITHUB_SHA}" .

@@ -62,10 +62,11 @@ http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/auth/register') {
       const input = await requestBody(req);
       if (!input.name || !input.email || !input.password || input.password.length < 8) return json(res, 400, { error: 'Name, email, and an 8+ character password are required.' });
-      const store = readStore();
       const email = input.email.trim().toLowerCase();
+      const passwordHash = await hashPassword(input.password);
+      const store = readStore();
       if (store.users.some((user) => user.email === email)) return json(res, 409, { error: 'Account already exists.' });
-      const user = { id: crypto.randomUUID(), name: input.name.trim(), email, passwordHash: await hashPassword(input.password) };
+      const user = { id: crypto.randomUUID(), name: input.name.trim(), email, passwordHash };
       store.users.push(user); writeStore(store);
       return json(res, 201, { token: tokenFor(user), user: { id: user.id, name: user.name, email: user.email } });
     }
