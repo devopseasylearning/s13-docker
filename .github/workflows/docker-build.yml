@@ -30,3 +30,26 @@ jobs:
           printf '%s' "$DOCKERHUB_TOKEN" | docker login --username devopseasylearning --password-stdin
           docker tag "s13-training-camps:${GITHUB_SHA}" "$image"
           docker push "$image"
+
+  smoke-test:
+    name: Run the published container
+    if: github.ref == 'refs/heads/fix-restore-docker-and-course-enrollment-c1e100e' && github.event.before == '20f996219d54e4d00ebe93ab8c07c9a2ae499f5a'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      IMAGE: devopseasylearning/s13-training-camps-omo:20f996219d54e4d00ebe93ab8c07c9a2ae499f5a
+    steps:
+      - name: Pull and start the container
+        run: |
+          docker pull "$IMAGE"
+          docker run --detach --name s13-training-camps-omo --publish 127.0.0.1:8080:8080 "$IMAGE"
+      - name: Show the running container and health response
+        run: |
+          health=$(curl --fail --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 --max-time 3 http://127.0.0.1:8080/health)
+          {
+            echo '### Running container'
+            echo '```text'
+            docker ps --filter 'name=^/s13-training-camps-omo$'
+            printf '\nGET /health\n%s\n' "$health"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
