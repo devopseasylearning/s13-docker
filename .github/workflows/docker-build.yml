@@ -33,7 +33,7 @@ jobs:
 
   smoke-test:
     name: Run the published container
-    if: github.ref == 'refs/heads/fix-restore-docker-and-course-enrollment-c1e100e' && github.event.before == '20f996219d54e4d00ebe93ab8c07c9a2ae499f5a'
+    if: github.ref == 'refs/heads/fix-restore-docker-and-course-enrollment-c1e100e' && github.event.before == 'bbcaa4bd2f59ad48f2f310446040c854899a25f2'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
@@ -45,7 +45,11 @@ jobs:
           docker run --detach --name s13-training-camps-omo --publish 127.0.0.1:8080:8080 "$IMAGE"
       - name: Show the running container and health response
         run: |
-          health=$(curl --fail --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 --max-time 3 http://127.0.0.1:8080/health)
+          if ! health=$(curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 1 --max-time 3 http://127.0.0.1:8080/health); then
+            docker ps --all --filter 'name=^/s13-training-camps-omo$'
+            docker logs s13-training-camps-omo
+            exit 1
+          fi
           {
             echo '### Running container'
             echo '```text'
