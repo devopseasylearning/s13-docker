@@ -1,4 +1,4 @@
-name: Build Docker image on push
+name: Build Docker Image
 
 on:
   push:
@@ -13,8 +13,16 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Build image
-        run: docker build --pull --tag "s13-training-camps:${GITHUB_SHA}" .
+      - name: Build Docker image
+        run: |
+          set -euo pipefail
+          image_tag="$(git rev-parse HEAD)"
+          docker build --pull --tag "s13-training-camps:${image_tag}" .
 
-      - name: Show built image
-        run: docker image ls --no-trunc --format 'table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Size}}' "s13-training-camps:${GITHUB_SHA}"
+      - name: Show built Docker image
+        run: |
+          set -euo pipefail
+          image_tag="$(git rev-parse HEAD)"
+          docker image ls --no-trunc \
+            --format 'REPOSITORY={{.Repository}} TAG={{.Tag}} IMAGE_ID={{.ID}} SIZE={{.Size}}' \
+            "s13-training-camps:${image_tag}"
