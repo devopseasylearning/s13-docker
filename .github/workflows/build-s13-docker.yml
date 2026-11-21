@@ -101,3 +101,62 @@ jobs:
             [[ -n "$image_ref" ]] || continue
             docker image ls --no-trunc "$image_ref"
           done <<< "$IMAGE_REFS"
+
+      - name: Start and show built containers
+        env:
+          IMAGE_REFS: ${{ steps.build.outputs.images }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$IMAGE_REFS" ]]; then
+            echo "No images were built; no containers to start."
+            exit 0
+          fi
+
+          active_container=""
+          cleanup() {
+            if [[ -n "$active_container" ]] && docker container inspect "$active_container" >/dev/null 2>&1; then
+              docker rm --force "$active_container"
+            fi
+          }
+          trap cleanup EXIT
+
+          while IFS= read -r image_ref; do
+            [[ -n "$image_ref" ]] || continue
+            suffix="${image_ref##*:}"
+            container_name="s13-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${suffix:0:12}"
+            active_container="$container_name"
+            docker run --detach --name "$container_name" --publish 127.0.0.1::8080 "$image_ref"
+
+            host_port="$(docker port "$container_name" 8080/tcp | awk -F: 'NR == 1 { print $NF }')"
+            if [[ -z "$host_port" ]]; then
+              echo "Could not determine the mapped port for $container_name." >&2
+              docker ps --all --filter "name=^/${container_name}$" --no-trunc
+              docker logs --tail=100 "$container_name"
+              exit 1
+            fi
+
+            health_url="http://127.0.0.1:${host_port}/health"
+            health_response=""
+            for attempt in $(seq 1 30); do
+              if health_response="$(curl --fail --silent "$health_url")"; then
+                break
+              fi
+              sleep 1
+            done
+
+            if [[ -z "$health_response" ]]; then
+              echo "Container $container_name did not become healthy." >&2
+              docker ps --all --filter "name=^/${container_name}$" --no-trunc
+              docker logs --tail=100 "$container_name"
+              exit 1
+            fi
+
+            printf 'Container started from %s:\n' "$image_ref"
+            docker ps --filter "name=^/${container_name}$" --no-trunc
+            docker inspect --format 'Name={{.Name}} Image={{.Config.Image}} State={{.State.Status}}' "$container_name"
+            printf 'Health response: %s\n' "$health_response"
+            docker rm --force "$container_name"
+            active_container=""
+          done <<< "$IMAGE_REFS"

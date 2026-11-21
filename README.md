@@ -50,7 +50,7 @@ Use `docker volume rm s13-training-camps-data` only when you intentionally want 
 
 ## CI/CD
 
-`.github/workflows/build-s13-docker.yml` builds and pushes a Docker image for every new commit in each pushed branch or `v*` tag to `deveopeasylearning/s13-training-camps`, tagged with the full commit SHA. This build workflow does not cancel earlier runs, and builds commits individually if a push contains multiple commits. Each run lists the built image tags, IDs, and sizes in its logs. Monitor each run in the repository's Actions page; it succeeds only after all images for that push build successfully.
+`.github/workflows/build-s13-docker.yml` builds and pushes a Docker image for every new commit in each pushed branch or `v*` tag to `deveopeasylearning/s13-training-camps`, tagged with the full commit SHA. This build workflow does not cancel earlier runs, and builds commits individually if a push contains multiple commits. Each run lists the built image tags, IDs, and sizes, starts each image in a temporary container, and logs its container details and health response. Monitor each run in the repository's Actions page; it succeeds only after all images for that push build and pass the container health check.
 
 To enable Docker Hub pushes, configure the repository Actions secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`. Use a Docker Hub access token with permission to push images; do not commit credentials.
 
