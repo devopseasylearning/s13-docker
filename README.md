@@ -50,4 +50,6 @@ Use `docker volume rm s13-training-camps-data` only when you intentionally want 
 
 ## CI/CD
 
-`.github/workflows/deploy-s13-training-camps.yml` builds the single image from the root `Dockerfile`, removes the existing container, starts the replacement with the persistent volume, and verifies its health. No repository variables or secrets are required for this student demo.
+`.github/workflows/build-s13-docker.yml` builds a Docker image for every new commit in each pushed branch or `v*` tag. Images are tagged with the full commit SHA. This build workflow does not cancel earlier runs, and builds commits individually if a push contains multiple commits.
+
+`.github/workflows/deploy-s13-training-camps.yml` builds the current image from the root `Dockerfile`, replaces the existing container, starts it with the persistent volume, and verifies its health. No repository variables or secrets are required for this student demo.

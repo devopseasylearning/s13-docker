@@ -1,0 +1,52 @@
+name: Build S13 Docker image
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build each pushed commit
+    runs-on: [self-hosted, linux, ubuntu, docker, shell, backend]
+    steps:
+      - name: Checkout repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Docker
+        run: docker version
+
+      - name: Build image for every new commit
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_SHA: ${{ github.sha }}
+          PUSH_DELETED: ${{ github.event.deleted }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$PUSH_DELETED" == "true" ]]; then
+            echo "Ref deletion; no image to build."
+            exit 0
+          fi
+
+          if [[ "$PUSH_BEFORE" =~ ^0+$ ]] || ! git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
+            commits="$PUSH_SHA"
+          else
+            commits="$(git rev-list --reverse "${PUSH_BEFORE}..${PUSH_SHA}")"
+            if [[ -z "$commits" ]]; then
+              commits="$PUSH_SHA"
+            fi
+          fi
+
+          target_sha="$(git rev-parse "$PUSH_SHA")"
+          while IFS= read -r commit; do
+            [[ -n "$commit" ]] || continue
+            git checkout --detach "$commit"
+            docker build --pull --tag "s13-training-camps:${commit}" .
+          done <<< "$commits"
+
+          git checkout --detach "$target_sha"
