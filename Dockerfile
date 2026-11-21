@@ -8,6 +8,7 @@ COPY web/public ./public
 RUN mkdir -p /data && chown -R node:node /data /app
 
 USER node
+ENV PORT=8080
 EXPOSE 8080
 
 CMD ["node", "server.js"]
