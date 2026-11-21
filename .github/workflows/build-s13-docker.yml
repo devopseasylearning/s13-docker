@@ -21,6 +21,7 @@ jobs:
         run: docker version
 
       - name: Build image for every new commit
+        id: build
         env:
           PUSH_BEFORE: ${{ github.event.before }}
           PUSH_SHA: ${{ github.sha }}
@@ -43,10 +44,34 @@ jobs:
           fi
 
           target_sha="$(git rev-parse "$PUSH_SHA")"
+          image_refs=()
           while IFS= read -r commit; do
             [[ -n "$commit" ]] || continue
             git checkout --detach "$commit"
-            docker build --pull --tag "s13-training-camps:${commit}" .
+            image_ref="s13-training-camps:${commit}"
+            docker build --pull --tag "$image_ref" .
+            image_refs+=("$image_ref")
           done <<< "$commits"
 
           git checkout --detach "$target_sha"
+          {
+            echo "images<<IMAGE_REFS"
+            printf '%s\n' "${image_refs[@]}"
+            echo "IMAGE_REFS"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Show built Docker images
+        env:
+          IMAGE_REFS: ${{ steps.build.outputs.images }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$IMAGE_REFS" ]]; then
+            echo "No images were built."
+            exit 0
+          fi
+
+          printf 'Built Docker images:\n'
+          while IFS= read -r image_ref; do
+            [[ -n "$image_ref" ]] || continue
+            docker image ls --no-trunc "$image_ref"
+          done <<< "$IMAGE_REFS"
