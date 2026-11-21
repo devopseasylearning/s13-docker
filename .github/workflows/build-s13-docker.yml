@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    name: Build each pushed commit
+    name: Build and publish each pushed commit
     runs-on: [self-hosted, linux, ubuntu, docker, shell, backend]
     steps:
       - name: Checkout repository history
@@ -20,12 +20,18 @@ jobs:
       - name: Verify Docker
         run: docker version
 
-      - name: Build image for every new commit
+      - name: Build and push image for every new commit
         id: build
         env:
           PUSH_BEFORE: ${{ github.event.before }}
           PUSH_SHA: ${{ github.sha }}
           PUSH_DELETED: ${{ github.event.deleted }}
+          DOCKERHUB_IMAGE: deveopeasylearning/s13-training-camps
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          RUNNER_TEMP: ${{ runner.temp }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           set -euo pipefail
 
@@ -43,13 +49,33 @@ jobs:
             fi
           fi
 
+          if [[ -z "$DOCKERHUB_USERNAME" || -z "$DOCKERHUB_TOKEN" ]]; then
+            echo "Configure the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN repository secrets before building." >&2
+            exit 1
+          fi
+
+          DOCKER_CONFIG="${RUNNER_TEMP}/docker-config-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          mkdir -p "$DOCKER_CONFIG"
+          export DOCKER_CONFIG
+          cleanup() {
+            if [[ -f "$DOCKER_CONFIG/config.json" ]]; then
+              rm -- "$DOCKER_CONFIG/config.json"
+            fi
+            if [[ -d "$DOCKER_CONFIG" ]]; then
+              rmdir "$DOCKER_CONFIG"
+            fi
+          }
+          trap cleanup EXIT
+          printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+
           target_sha="$(git rev-parse "$PUSH_SHA")"
           image_refs=()
           while IFS= read -r commit; do
             [[ -n "$commit" ]] || continue
             git checkout --detach "$commit"
-            image_ref="s13-training-camps:${commit}"
+            image_ref="${DOCKERHUB_IMAGE}:${commit}"
             docker build --pull --tag "$image_ref" .
+            docker push "$image_ref"
             image_refs+=("$image_ref")
           done <<< "$commits"
 
