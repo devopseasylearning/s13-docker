@@ -6,6 +6,7 @@ on:
 
 jobs:
   build:
+    name: Build S13 training camps image
     runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
